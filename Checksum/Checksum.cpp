@@ -7,6 +7,9 @@
 #include <DbgHelp.h>
 #include <iomanip>
 #include <sstream>
+#include <random>
+#include <fstream>
+
 DWORD TamperingCheck(LPCSTR path)
 {
     HANDLE hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -69,59 +72,102 @@ std::string IntToPattern(int value)
     return pattern;
 }
 
-std::string StringToPattern()
+void GenerateToken(int number_of_tokens)
 {
-    
+    std::vector<std::string> tokens;
+
+    auto generate_token = []()
+        {
+            std::random_device random;
+            std::mt19937 gen(random());
+            std::uniform_int_distribution<> distribution(0, 9);
+            std::stringstream token_stream;
+
+            for (int i = 0; i < 12; ++i) 
+            {
+                if (i > 0 && i % 4 == 0) 
+                {
+                    token_stream << '-';
+                }
+                token_stream << distribution(gen);
+            }
+
+            return token_stream.str();
+        };
+
+    for (int i = 0; i < number_of_tokens; ++i)
+    {
+        tokens.push_back(generate_token());
+    }
+
+    std::ofstream out_file("token.txt");
+    if (out_file.is_open()) 
+    {
+        for (const auto& token : tokens) 
+        {
+            out_file << token << std::endl;
+        }
+        out_file.close();
+        std::cout << "Tokens saved in token.txt" << std::endl;
+    }
+    else
+    {
+        std::cerr << "Unable to open file for writing." << std::endl;
+    }
 }
 
 int main()
 {
     std::string selected_tool;
-    std::cout << "0) CPU Usage" << std::endl;
-    std::cout << "1) Checksum" << std::endl;
-    std::cout << "2) Int to Pattern" << std::endl;
-    std::cout << "3) String to Pattern" << std::endl;
+    std::cout << "-0) CPU Usage" << std::endl;
+    std::cout << "-1) Checksum" << std::endl;
+    std::cout << "-2) Int to Pattern" << std::endl;
+    std::cout << "-3) String to Pattern" << std::endl;
+    std::cout << "-4) Generate Token" << std::endl;
     std::getline(std::cin, selected_tool); 
 
     if (selected_tool == "0")
     {
-
-        FILETIME idleTime, kernelTime, userTime;
+        while (true)
+        {
+            FILETIME idleTime, kernelTime, userTime;
 
         if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) { }
-        double cpuUsage = 0.0;
+            double cpuUsage = 0.0;
 
-        __int64 idleTimePrev = 0, kernelTimePrev = 0, userTimePrev = 0;
-        __int64 idleTimeNow = 0, kernelTimeNow = 0, userTimeNow = 0;
+            __int64 idleTimePrev = 0, kernelTimePrev = 0, userTimePrev = 0;
+            __int64 idleTimeNow = 0, kernelTimeNow = 0, userTimeNow = 0;
 
-        idleTimePrev = *(__int64*)&idleTime;
-        kernelTimePrev = *(__int64*)&kernelTime;
-        userTimePrev = *(__int64*)&userTime;
+            idleTimePrev = *(__int64*)&idleTime;
+            kernelTimePrev = *(__int64*)&kernelTime;
+            userTimePrev = *(__int64*)&userTime;
 
-        Sleep(1000);
+            Sleep(1000);
 
-        if (GetSystemTimes(&idleTime, &kernelTime, &userTime))
-        {
-            idleTimeNow = *(__int64*)&idleTime;
-            kernelTimeNow = *(__int64*)&kernelTime;
-            userTimeNow = *(__int64*)&userTime;
-
-            __int64 totalPrev = kernelTimePrev + userTimePrev;
-            __int64 totalNow = kernelTimeNow + userTimeNow;
-            __int64 total = totalNow - totalPrev;
-
-            if (total > 0)
+            if (GetSystemTimes(&idleTime, &kernelTime, &userTime))
             {
-                __int64 idlePrev = idleTimePrev;
-                __int64 idleNow = idleTimeNow;
-                __int64 idle = idleNow - idlePrev;
+                idleTimeNow = *(__int64*)&idleTime;
+                kernelTimeNow = *(__int64*)&kernelTime;
+                userTimeNow = *(__int64*)&userTime;
 
-                cpuUsage = (double)(total - idle);
-                cpuUsage = cpuUsage / total;
-                cpuUsage = cpuUsage * 100.0;
-                std::cout << "CPU Usage: " << cpuUsage << std::endl;
+                __int64 totalPrev = kernelTimePrev + userTimePrev;
+                __int64 totalNow = kernelTimeNow + userTimeNow;
+                __int64 total = totalNow - totalPrev;
+
+                if (total > 0)
+                {
+                    __int64 idlePrev = idleTimePrev;
+                    __int64 idleNow = idleTimeNow;
+                    __int64 idle = idleNow - idlePrev;
+
+                    cpuUsage = (double)(total - idle);
+                    cpuUsage = cpuUsage / total;
+                    cpuUsage = cpuUsage * 100.0;
+                    std::cout << "\r";
+                    std::cout << "CPU Usage: " << std::fixed << std::setprecision(2) << cpuUsage << " %" << std::flush;
+                }
             }
-        }
+        }    
         system("pause");
     }
 
@@ -161,6 +207,16 @@ int main()
         std::cout << std::endl;
 
         delete[] bytes;
+        system("pause");
+    }
+
+    if (selected_tool == "4")
+    {
+        std::cout << "Enter number of token to generate:" << std::endl;
+        int token_amount;
+        std::cin >> token_amount;
+        GenerateToken(token_amount);
+
         system("pause");
     }
     return 0;
